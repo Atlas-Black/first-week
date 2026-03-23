@@ -25,7 +25,6 @@ public class DeviceServiceImpl implements DeviceService {
         device.setDeviceName(deviceAddDTO.getDeviceName());
         device.setDeviceType(deviceAddDTO.getDeviceType());
         device.setStatus(deviceAddDTO.getStatus());
-        device.setLastCheckTime(LocalDateTime.now());
 
         deviceMapper.insert(device);
 
