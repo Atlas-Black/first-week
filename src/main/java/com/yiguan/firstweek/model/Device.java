@@ -9,7 +9,7 @@ import lombok.Data;
 
 import java.time.LocalDateTime;
 @Data
-@TableName("device")
+@TableName("device")    //类对应数据库的device表
 public class Device {
 
     @TableId(type = IdType.AUTO)
