@@ -1,0 +1,20 @@
+package com.yiguan.firstweek.config;
+
+import com.yiguan.firstweek.interceptor.LoginInterceptor;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+@Configuration
+//自定义MVC的配置
+public class WebConfig implements WebMvcConfigurer {
+
+    @Override
+    //专门注册拦截器的方法
+    public void addInterceptors(InterceptorRegistry registry) {
+        //把LoginInterceptor加入MVC的请求处理链里
+        registry.addInterceptor(new LoginInterceptor())
+                .addPathPatterns("/device/**")
+                .excludePathPatterns("/user/login");
+    }
+}

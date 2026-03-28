@@ -7,6 +7,7 @@ import com.yiguan.firstweek.service.DeviceService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import com.yiguan.firstweek.vo.DeviceVO;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
 //接收请求、获取参数、调用DeviceService、返回结果
 
@@ -42,5 +43,11 @@ public class DeviceController {
     @GetMapping("/{id}")
     public Result<DeviceVO> getDeviceById(@PathVariable Long id) {
         return Result.success(deviceService.getDeviceById(id));
+    }
+
+    @GetMapping("/page")
+    public Result<Page<DeviceVO>> pageDevice(@RequestParam long page,
+                                             @RequestParam long size) {
+        return Result.success(deviceService.pageDevice(page, size));
     }
 }

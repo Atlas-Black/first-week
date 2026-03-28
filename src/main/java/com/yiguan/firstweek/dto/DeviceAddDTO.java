@@ -1,5 +1,8 @@
 package com.yiguan.firstweek.dto;
 
+//输入
+//前端新增设备时，传入的对象
+//前端需要传什么，定义什么
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;

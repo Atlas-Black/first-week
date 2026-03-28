@@ -1,5 +1,5 @@
 package com.yiguan.firstweek.vo;
-
+//控制给前端看什么
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
@@ -16,4 +16,6 @@ public class DeviceVO {
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private LocalDateTime lastCheckTime;
+
+    private Long createBy;
 }

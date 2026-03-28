@@ -1,5 +1,5 @@
 package com.yiguan.firstweek.common;
-
+//返回统一包装
 import lombok.Data;
 
 @Data
