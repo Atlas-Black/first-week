@@ -1,13 +1,20 @@
 package com.yiguan.firstweek.service.impl;
 
 import com.yiguan.firstweek.dto.DeviceAddDTO;
+import com.yiguan.firstweek.dto.DeviceUpdateDTO;
 import com.yiguan.firstweek.exception.BusinessException;
 import com.yiguan.firstweek.mapper.DeviceMapper;
 import com.yiguan.firstweek.model.Device;
 import com.yiguan.firstweek.service.DeviceService;
 import com.yiguan.firstweek.vo.DeviceVO;
+import org.redisson.Redisson;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.concurrent.TimeUnit;
 
 import java.time.LocalDateTime;
 
@@ -15,9 +22,15 @@ import java.time.LocalDateTime;
 public class DeviceServiceImpl implements DeviceService {
 
     private final DeviceMapper deviceMapper;
+    private final RedisTemplate<String, Object> redisTemplate;
+    private final ObjectMapper objectMapper;
+    private final RedissonClient redissonClient;
 
-    public DeviceServiceImpl(DeviceMapper deviceMapper) {
+    public DeviceServiceImpl(DeviceMapper deviceMapper, RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper, RedissonClient redissonClient) {
         this.deviceMapper = deviceMapper;
+        this.redisTemplate = redisTemplate;
+        this.objectMapper = objectMapper;
+        this.redissonClient = redissonClient;
     }
 
     @Override
@@ -35,17 +48,46 @@ public class DeviceServiceImpl implements DeviceService {
 
     @Override
     public DeviceVO getDeviceById(Long id) {
-        Device device = deviceMapper.selectById(id);    //查数据库
+        String key = "device:" + id;
+
+        //查Redis
+        Object cacheObject = redisTemplate.opsForValue().get(key);
+        if (cacheObject != null) {
+            //情况是“NULL”之前数据库已经查过了，确定这个设备不存在，所以这次不用再查 MySQL
+            //防穿透关键
+            if ("NULL".equals(cacheObject)) {
+                System.out.println("命中缓存，deviceId = " + id);
+                throw new BusinessException("该设备不存在");
+            }
+
+            System.out.println("命中缓存，deviceId = " + id);
+            System.out.println("缓存对象类型：" + cacheObject.getClass());
+            //是正常设备数据，正常命中缓存，直接返回
+            return objectMapper.convertValue(cacheObject, DeviceVO.class);
+        }
+
+        System.out.println("查询数据库，deviceId = " + id);
+        Device device = deviceMapper.selectById(id);    //Redis没有，再查数据库MySQL
         if (device == null) {
+            System.out.println("数据库无此设备，写入空值缓存，deviceId = " + id);
+            //MySQL也没有时，写空值缓存但只缓存 2 分钟，避免长时间占用缓存
+            redisTemplate.opsForValue().set(key, "NULL", 2, TimeUnit.MINUTES);
             throw new BusinessException("该设备不存在");
         }
+
+        DeviceVO deviceVO = toVO(device);
+        //MySQL查到正常数据时，正常写回Redis
+        redisTemplate.opsForValue().set(key, deviceVO);
         //Entity转VO，实体库对象转成前端展示对象
-        return toVO(device);
+        return deviceVO;
     }
 
     @Override
+    //分页逻辑
     public Page<DeviceVO> pageDevice(long page, long size) {
+        //告诉框架页码和每页条数
         Page<Device> devicePage = new Page<>(page, size);
+        //执行分页查询
         Page<Device> resultPage = deviceMapper.selectPage(devicePage, null);
 
         Page<DeviceVO> voPage = new Page<>();
@@ -70,5 +112,64 @@ public class DeviceServiceImpl implements DeviceService {
         deviceVO.setLastCheckTime(device.getLastCheckTime());
         deviceVO.setCreateBy(device.getCreateBy());
         return deviceVO;
+    }
+
+    @Override
+    public void updateDevice(DeviceUpdateDTO deviceUpdateDTO) {
+        Device device = new Device();
+        device.setId(deviceUpdateDTO.getId());
+        device.setDeviceName(deviceUpdateDTO.getDeviceName());
+        device.setDeviceType(deviceUpdateDTO.getDeviceType());
+        device.setStatus(deviceUpdateDTO.getStatus());
+
+        deviceMapper.updateById(device);
+
+        String key = "device:" + deviceUpdateDTO.getId();
+        redisTemplate.delete(key);
+    }
+
+    @Override
+    public void borrowDevice(Long id) {
+        //先按设备id拿锁，同一台设备共用同一把锁
+        RLock lock = redissonClient.getLock("lock:device:" + id);
+
+        //因为后面finally里解锁时，需要先判断自己是不是真的拿到过锁，否则可能会误解锁
+        boolean locked = false;
+        try {
+            //尝试加锁，尝试立即获取锁
+            locked = lock.tryLock();
+
+            if (!locked) {
+                throw new BusinessException("当前设备借用人数过多，请稍后再试");
+            }
+
+            //检查设备是否存在
+            Device device = deviceMapper.selectById(id);
+            if (device == null) {
+                throw new BusinessException("该设备不存在");
+            }
+
+            //判断设备是否已借出
+            //0:正常未接触。2:已借出
+            if (device.getStatus() != 0) {
+                throw new BusinessException("该设备已被借出");
+            }
+
+            //更新状态已借出
+            device.setStatus(2);
+            deviceMapper.updateById(device);
+
+            //删除缓存，由于设备状态已经变了，所以缓存里的旧设备信息也不能留着
+            String key = "device:" + id;
+            redisTemplate.delete(key);
+
+            //无论中间代码成功还是报错，最终都必须释放锁
+        } finally {
+            //确保真的是当前线程持有这把锁，才能安全解锁
+            if (locked && lock.isHeldByCurrentThread()) {
+                lock.unlock();
+                //无论中间代码成功还是报错，最终都必须释放锁；如果没有finally，一旦中间异常，锁就不可能一直不释放，后续请求全卡死
+            }
+        }
     }
 }

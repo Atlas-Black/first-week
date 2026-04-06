@@ -17,6 +17,7 @@ public class LoginInterceptor implements HandlerInterceptor {
         //取请求头里的Token
         String token = request.getHeader("Authorization");
 
+        //没带就拦住
         if (token == null || token.isBlank()) {
             throw new BusinessException("未登录");
         }
@@ -26,7 +27,7 @@ public class LoginInterceptor implements HandlerInterceptor {
             Claims claims = JwtUtils.parseToken(token);
             //取出userId转成Long
             Long userId = Long.valueOf(claims.get("userId").toString());
-            //当前请求的用户 id，已经被保存到 ThreadLocal 里了
+            //当前请求的用户 id，已经被保存到 ThreadLocal 里了，放入UserContext
             UserContext.setUserId(userId);
         } catch (Exception e) {
             throw new BusinessException("登录失效，请重新登录");

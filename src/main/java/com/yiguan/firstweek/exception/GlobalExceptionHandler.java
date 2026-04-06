@@ -21,6 +21,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public Result<Void> handleException(Exception e) {
+        e.printStackTrace();
         return Result.fail(500, "系统开小差了");
     }
 }

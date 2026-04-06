@@ -19,12 +19,17 @@ public class JwtUtils {
     //Token的过期时间，24h
     private static final long EXPIRE_TIME = 1000L * 60 * 60 * 24;
 
-    public static String createToken(Long userId) {     //根据用户id生成JWT字符串
+    public static String createToken(Long userId) {     //根据用户id生成可验证、可过期的JWT字符串
         return Jwts.builder()
+                //给这个Token一个主题
                 .setSubject("login-user")
+                //把当前登录用户id放进去
                 .claim("userId", userId)
+                //签发时间
                 .setIssuedAt(new Date())
+                //过期时间
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRE_TIME))
+                //用密钥签名，防止别人伪造
                 .signWith(SignatureAlgorithm.HS256, SECRET_KEY)
                 .compact();
     }
