@@ -136,6 +136,9 @@ public class DeviceServiceImpl implements DeviceService {
         //因为后面finally里解锁时，需要先判断自己是不是真的拿到过锁，否则可能会误解锁
         boolean locked = false;
         try {
+            // tryLock()：尝试获取分布式锁。
+            // 如果当前锁没有被其他线程占用，就返回 true，当前线程可以继续执行业务逻辑；
+            // 如果锁已经被占用，就返回 false，避免多个线程同时操作同一台设备，造成重复借出。
             //尝试加锁，尝试立即获取锁
             locked = lock.tryLock();
 
@@ -165,6 +168,11 @@ public class DeviceServiceImpl implements DeviceService {
 
             //无论中间代码成功还是报错，最终都必须释放锁
         } finally {
+            // unlock()：释放分布式锁。
+            // 必须写在 finally 块中，原因是：
+            // 1. 无论业务执行成功还是中途抛异常，都要保证锁最终被释放；
+            // 2. 如果不在 finally 中释放锁，可能导致锁一直被占用，后续请求无法获取锁；
+            // 3. 释放前要先判断当前线程是否真的持有这把锁，避免误解锁。
             //确保真的是当前线程持有这把锁，才能安全解锁
             if (locked && lock.isHeldByCurrentThread()) {
                 lock.unlock();
