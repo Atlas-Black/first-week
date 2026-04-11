@@ -3,6 +3,7 @@ package com.yiguan.firstweek.config;
 import com.yiguan.firstweek.interceptor.LoginInterceptor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 //告诉Spring，哪些接口需要上锁，哪些接口可以直接访问
@@ -17,5 +18,12 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addInterceptor(new LoginInterceptor())
                 .addPathPatterns("/device/**")
                 .excludePathPatterns("/user/login");
+    }
+
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        registry.addResourceHandler("/images/**")
+                //是电脑本地磁盘目录里的文件
+                .addResourceLocations("file:/Users/atlasblack/Desktop/Study-personal/实习/campus-images");
     }
 }

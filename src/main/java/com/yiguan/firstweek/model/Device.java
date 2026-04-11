@@ -19,6 +19,7 @@ public class Device {
     private String deviceName;
     private String deviceType;     //投影仪
     private Integer status;     //0 = 正常； 1 = 故障 ；Integer是Int的包装类型，对象类型；可以是null
+    private String imageUrl;
 
     //时间自动填充
     @TableField(fill = FieldFill.INSERT)

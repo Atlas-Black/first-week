@@ -6,6 +6,8 @@ import com.yiguan.firstweek.exception.BusinessException;
 import com.yiguan.firstweek.mapper.DeviceMapper;
 import com.yiguan.firstweek.model.Device;
 import com.yiguan.firstweek.service.DeviceService;
+import com.yiguan.firstweek.service.LogService;
+import com.yiguan.firstweek.vo.DeviceExportVO;
 import com.yiguan.firstweek.vo.DeviceVO;
 import org.redisson.Redisson;
 import org.redisson.api.RLock;
@@ -14,9 +16,11 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.concurrent.TimeUnit;
 
+import java.util.concurrent.TimeUnit;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.time.format.DateTimeFormatter;
 
 @Service
 public class DeviceServiceImpl implements DeviceService {
@@ -25,12 +29,14 @@ public class DeviceServiceImpl implements DeviceService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final ObjectMapper objectMapper;
     private final RedissonClient redissonClient;
+    private final LogService logService;
 
-    public DeviceServiceImpl(DeviceMapper deviceMapper, RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper, RedissonClient redissonClient) {
+    public DeviceServiceImpl(DeviceMapper deviceMapper, RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper, RedissonClient redissonClient, LogService logService) {
         this.deviceMapper = deviceMapper;
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.redissonClient = redissonClient;
+        this.logService = logService;
     }
 
     @Override
@@ -111,6 +117,7 @@ public class DeviceServiceImpl implements DeviceService {
         deviceVO.setStatus(device.getStatus());
         deviceVO.setLastCheckTime(device.getLastCheckTime());
         deviceVO.setCreateBy(device.getCreateBy());
+        deviceVO.setImageUrl(device.getImageUrl());
         return deviceVO;
     }
 
@@ -166,6 +173,9 @@ public class DeviceServiceImpl implements DeviceService {
             String key = "device:" + id;
             redisTemplate.delete(key);
 
+            System.out.println("借用主线程名称：" + Thread.currentThread().getName());
+            logService.saveBorrowLog(id);
+
             //无论中间代码成功还是报错，最终都必须释放锁
         } finally {
             // unlock()：释放分布式锁。
@@ -179,5 +189,33 @@ public class DeviceServiceImpl implements DeviceService {
                 //无论中间代码成功还是报错，最终都必须释放锁；如果没有finally，一旦中间异常，锁就不可能一直不释放，后续请求全卡死
             }
         }
+    }
+
+    //把数据库里的Device转成Excel导出专用对象DeviceExportVO
+    @Override
+    public List<DeviceExportVO> exportDeviceList(){
+        List<Device> deviceList = deviceMapper.selectList(null);
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        return deviceList.stream().map(device ->{
+            DeviceExportVO vo = new DeviceExportVO();
+            vo.setId(device.getId());
+            vo.setDeviceName(device.getDeviceName());
+            vo.setDeviceType(device.getDeviceType());
+            vo.setStatus(device.getStatus());
+            vo.setCreatBy(device.getCreateBy());
+
+            if (device.getLastCheckTime() != null){
+                vo.setLastCheckTime(device.getLastCheckTime().format(formatter));
+            }
+
+            return vo;
+        }).toList();
+    }
+
+    @Override
+    public void saveImportedDevice(Device device){
+        deviceMapper.insert(device);
     }
 }

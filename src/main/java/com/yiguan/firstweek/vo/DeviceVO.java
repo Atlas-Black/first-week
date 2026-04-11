@@ -18,4 +18,5 @@ public class DeviceVO {
     private LocalDateTime lastCheckTime;
 
     private Long createBy;
+    private String imageUrl;
 }

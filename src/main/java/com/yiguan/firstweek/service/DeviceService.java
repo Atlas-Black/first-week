@@ -2,9 +2,13 @@ package com.yiguan.firstweek.service;
 
 import com.yiguan.firstweek.dto.DeviceAddDTO;
 import com.yiguan.firstweek.dto.DeviceUpdateDTO;
+import com.yiguan.firstweek.model.Device;
 import com.yiguan.firstweek.vo.DeviceVO;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yiguan.firstweek.vo.DeviceVO;
+import com.yiguan.firstweek.vo.DeviceExportVO;
+
+import java.util.List;
 
 //业务逻辑
 //接收DTO、组装实体类、调Mapper、转成VO返回
@@ -16,4 +20,7 @@ public interface DeviceService {
     Page<DeviceVO> pageDevice(long page, long size);
     void updateDevice(DeviceUpdateDTO deviceUpdateDTO);
     void borrowDevice(Long id);
+    List<DeviceExportVO> exportDeviceList();
+
+    void saveImportedDevice(Device device);
 }
